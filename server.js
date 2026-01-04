@@ -30,6 +30,18 @@ async function createBrowser() {
 
   await page.setViewport({ width: 1920, height: 1080 });
 
+  await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+
+  await page.setExtraHTTPHeaders({
+    'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+    'Sec-Fetch-Dest': 'document',
+    'Sec-Fetch-Mode': 'navigate',
+    'Sec-Fetch-Site': 'cross-site',
+    'Sec-Fetch-User': '?1',
+    'Upgrade-Insecure-Requests': '1',
+  });
+
   return { browser, page };
 }
 
@@ -139,7 +151,7 @@ app.post('/screenshot', async (req, res) => {
     console.log(`Done: ${screenshot.length} bytes`);
 
     res.set('Content-Type', `image/${type === 'jpg' ? 'jpeg' : type}`);
-    res.send(screenshot);
+    res.end(screenshot);
 
   } catch (error) {
     console.error('Error:', error.message);

@@ -1,15 +1,13 @@
 {
   "name": "puppeteer-screenshot-api",
   "version": "1.0.0",
-  "description": "Screenshot API with puppeteer-real-browser",
+  "description": "Screenshot API with puppeteer",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
     "express": "^4.18.2",
-    "puppeteer": "^24.34.0",
-    "puppeteer-extra": "^3.3.6",
-    "puppeteer-extra-plugin-stealth": "^2.11.2"
+    "puppeteer": "^24.34.0"
   }
 }

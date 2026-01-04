@@ -1,107 +1,13 @@
 const express = require('express');
-const { connect } = require('puppeteer-real-browser');
+const puppeteer = require('puppeteer-extra');
+const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+
+puppeteer.use(StealthPlugin());
 
 const app = express();
 app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
-
-// --- Helpers ---
-
-async function createBrowser() {
-  const { browser, page } = await connect({
-    headless: 'new',
-    turnstile: true,
-    args: [
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage',
-      '--disable-notifications',
-      '--disable-popup-blocking'
-    ]
-  });
-
-  browser.on('targetcreated', async (target) => {
-    try {
-      const p = await target.page();
-      if (p && p !== page) await p.close();
-    } catch {}
-  });
-
-  await page.setViewport({ width: 1920, height: 1080 });
-
-  await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
-
-  await page.setExtraHTTPHeaders({
-    'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7',
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-    'Sec-Fetch-Dest': 'document',
-    'Sec-Fetch-Mode': 'navigate',
-    'Sec-Fetch-Site': 'cross-site',
-    'Sec-Fetch-User': '?1',
-    'Upgrade-Insecure-Requests': '1',
-  });
-
-  return { browser, page };
-}
-
-async function warmup(page, url) {
-  console.log('Warmup:', url);
-  await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
-  await sleep(1000);
-}
-
-async function navigate(page, url, options) {
-  console.log('Navigate:', url);
-  await page.goto(url, {
-    waitUntil: 'networkidle2',
-    timeout: options.timeout,
-    referer: options.referer
-  });
-}
-
-async function scrollPage(page) {
-  await page.evaluate(async () => {
-    let y = 0;
-    const step = 500;
-    const h = document.body.scrollHeight;
-    while (y < h) {
-      window.scrollBy(0, step);
-      y += step;
-      await new Promise(r => setTimeout(r, 100));
-    }
-    window.scrollTo(0, 0);
-  });
-  await sleep(2000);
-}
-
-async function waitForImages(page) {
-  await page.evaluate(async () => {
-    const imgs = document.querySelectorAll('img');
-    await Promise.all([...imgs].map(img => {
-      if (img.complete) return;
-      return new Promise(r => {
-        img.onload = img.onerror = r;
-        setTimeout(r, 5000);
-      });
-    }));
-  });
-}
-
-async function takeScreenshot(page, options) {
-  const opts = { fullPage: options.fullPage, type: options.type };
-  if (options.type === 'jpeg' || options.type === 'jpg') {
-    opts.type = 'jpeg';
-    opts.quality = options.quality;
-  }
-  return page.screenshot(opts);
-}
-
-function sleep(ms) {
-  return new Promise(r => setTimeout(r, ms));
-}
-
-// --- API ---
 
 app.post('/screenshot', async (req, res) => {
   const {
@@ -110,9 +16,7 @@ app.post('/screenshot', async (req, res) => {
     fullPage = true,
     quality = 80,
     type = 'png',
-    wait = 5,
-    warmup: doWarmup = true,
-    warmupUrl = 'https://www.google.ru/'
+    wait = 3
   } = req.body;
 
   if (!url) {
@@ -124,26 +28,41 @@ app.post('/screenshot', async (req, res) => {
   try {
     console.log(`[${new Date().toISOString()}] Screenshot: ${url}`);
 
-    const result = await createBrowser();
-    browser = result.browser;
-    const page = result.page;
+    browser = await puppeteer.launch({
+      headless: true,
+      executablePath: '/usr/bin/chromium',
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+        '--disable-blink-features=AutomationControlled'
+      ]
+    });
 
-    if (doWarmup) {
-      await warmup(page, warmupUrl);
-    }
+    const page = await browser.newPage();
+    await page.setViewport({ width: 1920, height: 1080 });
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
 
-    await navigate(page, url, { timeout, referer: doWarmup ? warmupUrl : undefined });
+    console.log('Navigate:', url);
+    await page.goto(url, {
+      waitUntil: 'networkidle2',
+      timeout
+    });
+
+    console.log('Loaded:', page.url());
 
     if (wait > 0) {
       console.log(`Wait ${wait}s...`);
       await sleep(wait * 1000);
     }
 
-    await scrollPage(page);
-    await waitForImages(page);
-
     console.log('Screenshot...');
-    const screenshot = await takeScreenshot(page, { fullPage, type, quality });
+    const opts = { fullPage, type: type === 'jpg' ? 'jpeg' : type };
+    if (type === 'jpeg' || type === 'jpg') {
+      opts.quality = quality;
+    }
+    const screenshot = await page.screenshot(opts);
 
     await browser.close();
     browser = null;
@@ -160,6 +79,10 @@ app.post('/screenshot', async (req, res) => {
   }
 });
 
+function sleep(ms) {
+  return new Promise(r => setTimeout(r, ms));
+}
+
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Puppeteer API on port ${PORT}`);
+  console.log(`Screenshot API on port ${PORT}`);
 });

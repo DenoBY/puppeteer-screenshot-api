@@ -12,12 +12,14 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 COPY package.json ./
+
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+
 RUN npm install --omit=dev && npm cache clean --force
 
 COPY server.js ./
 
 ENV PORT=3000 \
-    USER_DATA_DIR=/tmp/chromium-profile \
     DISPLAY=:99
 
 EXPOSE 3000

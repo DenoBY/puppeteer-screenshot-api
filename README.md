@@ -1,6 +1,6 @@
 # Puppeteer Screenshot API
 
-REST API for taking screenshots with anti-bot bypass (puppeteer-extra + stealth plugin).
+REST API for taking screenshots with Puppeteer.
 
 ## Run
 
@@ -47,7 +47,19 @@ Content-Type: application/json
 | type | string | png | Format: png, jpeg |
 | wait | number | 3 | Wait after load (sec) |
 
-**Response:** Binary image (PNG/JPEG)
+**Response:**
+
+Success: Binary image (PNG/JPEG)
+
+Error (400):
+```json
+{"error": "URL is required"}
+```
+
+Error (500):
+```json
+{"error": "Navigation timeout of 60000 ms exceeded", "url": "https://example.com"}
+```
 
 ## Example
 

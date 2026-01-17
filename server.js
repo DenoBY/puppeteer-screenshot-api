@@ -43,7 +43,7 @@ app.post('/screenshot', async (req, res) => {
 
     console.log('Navigate:', url);
     await page.goto(url, {
-      waitUntil: 'load',
+      waitUntil: 'domcontentloaded',
       timeout
     });
 
